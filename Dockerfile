@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM nvcr.io/nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
@@ -32,7 +32,7 @@ RUN python3 setup.py install
 WORKDIR /assignment
 RUN python3 -m pip install -r ByteTrack/requirements.txt
 RUN python3 -m pip install -r ViTPose/requirements/build.txt
-#RUN python3 -m pip install  -r AdelaiDepth/LeReS/requirements.txt
+#RUN python3 -m pip install -r AdelaiDepth/LeReS/requirements.txt
 
 WORKDIR /assignment/ByteTrack
 RUN python3 setup.py develop
