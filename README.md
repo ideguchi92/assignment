@@ -21,7 +21,7 @@
 Dockerがインストール済みと仮定する。
 1. 下記コマンドを実行する。
   ```shell
-  git clone --depth=1 https://github.com/ideguchi92/assignment
+  git clone --depth=1 -b v0.0.1 https://github.com/ideguchi92/assignment
   cd assignment/
   docker build --rm -t assignment_env .
   mkdir {data,logs,models}
