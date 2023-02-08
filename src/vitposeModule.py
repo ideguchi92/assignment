@@ -16,15 +16,16 @@ def loadModel(configPath, ckptPath, device, half):
   if dataset_info is None:
     logger.warning(
       'Please set `dataset_info` in the config.'
-      'Check https://github.com/open-mmlab/mmpose/pull/663 for details.',
-      DeprecationWarning)
+      'Check https://github.com/open-mmlab/mmpose/pull/663 for details.'
+    )
   else:
     dataset_info = DatasetInfo(dataset_info)
 
   return model, dataset, dataset_info
 
 
-def inference(model, image, bboxes, dataset, dataset_info, device, half):
+def inference(model, image, plotted, bboxes, dataset, dataset_info, device, half):
+  # pose estimate
   pose_results, returned_outputs = inference_top_down_pose_model(
     model,
     image,
@@ -34,9 +35,13 @@ def inference(model, image, bboxes, dataset, dataset_info, device, half):
     dataset_info=dataset_info
   )
 
-  img = vis_pose_result(
+  points = {d['track_id']: [d['bbox'], d['keypoints']] for d in pose_results}
+
+
+  # plot bboxes and skeletons
+  plotted = vis_pose_result(
     model,
-    image,
+    plotted,
     pose_results,
     dataset=dataset,
     dataset_info=dataset_info,
@@ -47,4 +52,5 @@ def inference(model, image, bboxes, dataset, dataset_info, device, half):
     out_file=None
   )
 
-  return pose_results, img
+
+  return points, plotted

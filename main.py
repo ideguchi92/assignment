@@ -1,22 +1,18 @@
 import argparse
-from collections import Counter
 import logging
 import math
 from pathlib import Path
 import time
 
 import cv2
-from matplotlib import pyplot as plt
-import numpy as np
 import torch
-from torchvision import transforms
 
 from yolox.data.data_augment import preproc
 from yolox.tracker.byte_tracker import BYTETracker
 
+from src import bytetrackModule, vitposeModule
+from src.decision import checkClose, checkStopping, decideFlag
 from src.initLogger import initLogger
-from src import bytetrackModule, vitposeModule, plot_tracking
-#from src import pixelformerModule, midasModule, dptModule, leresModule
 
 
 logger = logging.getLogger(__name__)
@@ -44,21 +40,29 @@ if __name__ == '__main__':
     exit(1)
 
   # load video
-  vid = cv2.VideoCapture(str(args.input))
-  vidHeight = vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
+  vid = cv2.VideoCapture(args.input)
   vidWidth = vid.get(cv2.CAP_PROP_FRAME_WIDTH)
+  vidHeight = vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
   vidFps = vid.get(cv2.CAP_PROP_FPS)
   # set fps
   fps = vidFps / args.skiprate
+  logger.info(f'Input\'s FPS: {vidFps}')
+  logger.info(f'Output\'s FPS: {fps}')
 
-
-  vid_writer = cv2.VideoWriter(str(args.output), cv2.VideoWriter_fourcc(*'mp4v'), fps, (int(vidWidth), int(vidHeight)))
+  # videoWriter
+  vidWriter = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*'mp4v'), fps, (int(vidWidth), int(vidHeight)))
 
 
   device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+
   # load models
-  bytetrackModel, exp = bytetrackModule.loadModel('ByteTrack/exps/example/mot/yolox_s_mix_det.py', 'models/bytetrack_s_mot17.pth.tar', device, args.half)
+  bytetrackModel, exp = bytetrackModule.loadModel(
+    'ByteTrack/exps/example/mot/yolox_s_mix_det.py',
+    'models/bytetrack_s_mot17.pth.tar',
+    device,
+    args.half
+  )
   vitposeModel, dataset, dataset_info = vitposeModule.loadModel(
     'ViTPose/configs/body/2d_kpt_sview_rgb_img/topdown_heatmap/coco/ViTPose_small_coco_256x192.py',
     'models/vitpose_small.pth',
@@ -66,33 +70,29 @@ if __name__ == '__main__':
     args.half
   )
 
-  #pixelformerModel = pixelformerModule.loadModel('models/nyu.pth', device, args.half)
-  #midasModel = midasModule.loadModel('models/dpt_levit_224.pt', device, args.half)
-  #dptModel = dptModule.loadModel('models/dpt_hybrid-midas-501f0c75.pt', device, args.half)
-  #leresModel = leresModule.loadModel('models/res50.pth', device, args.half)
-
   tracker = BYTETracker(
     args=dict_dot_notation({
       'track_thresh': 0.5,
-      'track_buffer': int(fps * 3),
+      'track_buffer': math.ceil(fps * 3),
       'match_thresh': 0.8,
       'mot20': False,
     }),
     frame_rate=fps
   )
 
-  isLight = False
-  # store tsec flag
-  timeThreshold = 5
-  flagList = [False for i in range(int(fps*timeThreshold))]
-  # store previous data
-  previous = {}
-  # store 3sec stopping person id 
-  tmpStoppingList = [[] for i in range(int(fps*3))]
-  # store 30sec stopping person id 
-  stoppingList = [[] for i in range(int(fps*30))]
 
   cnt = 0
+  isLight = False
+  # store previous data
+  previous = {}
+  # store ids of people whose ankles coordinates of this frame are close to its of previous frame for 3secs
+  closeList = [[] for i in range(math.ceil(fps*3) - 1)]
+  # store ids of people who have been stopping over 3secs for 30secs
+  stoppingList = [[] for i in range(math.ceil(fps*30) - 1)]
+  # turn off threshold
+  timeThreshold = 5
+  # store flags for t secs
+  flagList = [False for i in range(math.ceil(fps*timeThreshold) - 1)]
 
   while True:
     start = time.time()
@@ -106,121 +106,81 @@ if __name__ == '__main__':
       cnt += 1
       continue
 
-    del flagList[0]
-    del tmpStoppingList[0]
-    del stoppingList[0]
-    flagList.append(False)
-    tmpStoppingList.append([])
-    stoppingList.append([])
 
+    # bytetrack
+    bboxes, img = bytetrackModule.inference(
+      bytetrackModel,
+      exp,
+      tracker,
+      frame,
+      previous,
+      vidWidth,
+      vidHeight,
+      device,
+      args.half
+    )
 
-    # yolox
-    outputs, ratio = bytetrackModule.inference(bytetrackModel, exp, frame, device, args.half)
-
-    if outputs is not None:
-      # extract person class
-      outputs = outputs[outputs[:, 6] < 1]
-
-      # bytetrack
-      online_targets = tracker.update(outputs, [int(vidHeight), int(vidWidth)], exp.test_size)
-      online_tlwhs = []
-      online_ids = []
-      online_scores = []
-      for t in online_targets:
-        tlwh = t.tlwh
-        tid = t.track_id
-        if tlwh[2] * tlwh[3] > vidWidth * vidHeight * 0.01:
-          online_tlwhs.append(tlwh)
-          online_ids.append(tid)
-          online_scores.append(t.score)
-
-      # format bbox to ViTPose(xywh)
-      bboxes = [{'bbox': tlwh, 'track_id': track_id} for tlwh, track_id in zip(online_tlwhs, online_ids)]
-
-      # vitpose
-      points, img = vitposeModule.inference(vitposeModel, frame, bboxes, dataset, dataset_info, device, args.half)
-
-      img = plot_tracking.plot_tracking(img, online_tlwhs, online_ids)
-
-      points = {d['track_id']: [d['bbox'], d['keypoints']] for d in points}
+    # vitpose
+    if len(bboxes):
+      present, img = vitposeModule.inference(
+        vitposeModel,
+        frame,
+        img,
+        bboxes,
+        dataset,
+        dataset_info,
+        device,
+        args.half
+      )
     else:
+      present = {}
       img = frame
-      #present = dict()
-
-    # depth estimate
-    # pixelformer 0.6s
-    #depth = pixelformerModule.inference(pixelformerModel, frame, device, args.half)
-    # midas 0.02s
-    #depth = midasModule.inference(midasModel, frame, device, args.half)
-    # dpt 0.18s
-    #depth = dptModule.inference(dptModel, frame, device, args.half)
-    # leres 0.06s
-    #depth = leresModule.inference(leresModel, frame, device, args.half)
 
 
     # check stopping
-    lst = []
-    for id_ in points.keys() & previous.keys():
-      if (points[id_][1][15][2] < 0.8
-          or points[id_][1][16][2] < 0.8
-          or previous[id_][1][15][2] < 0.8
-          or previous[id_][1][16][2] < 0.8):
-        continue
-
-      leftAnkleDist = math.dist((points[id_][1][15][0], points[id_][1][15][1]), (previous[id_][1][15][0], previous[id_][1][15][1]))
-      rightAnkleDist = math.dist((points[id_][1][16][0], points[id_][1][16][1]), (previous[id_][1][16][0], previous[id_][1][16][1]))
-      boxWidth = abs(points[id_][0][0] - points[id_][0][2])
-      boxHeight = abs(points[id_][0][1] - points[id_][0][3])
-      threshold = min(boxWidth, boxHeight) * 0.3 / fps
-      if leftAnkleDist < threshold and rightAnkleDist < threshold:
-        lst.append(id_)
-    tmpStoppingList[-1] = lst
-
-    lst = []
-    cntDict = Counter([x for l in tmpStoppingList for x in l])
-    for k, v in cntDict.items():
-      if v > len(tmpStoppingList) * 0.9:
-        lst.append(k)
-        cv2.rectangle(img, (int(points[k][0][0]), int(points[k][0][1])), (int(points[k][0][2]), int(points[k][0][3])), (0, 0, 255), 2)
-    stoppingList[-1] = lst
-
+    closeList.append(checkClose(present, previous, fps))
+    stoppingList.append(checkStopping(closeList))
+    flagList.append(decideFlag(stoppingList, present, fps, timeThreshold))
 
     # decide light on / off
-    if len(stoppingList[-1]):
-      for i in stoppingList[-1]:
-        for lst in stoppingList:
-          if i not in lst:
-            break
-        else:
-          # stop over 30sec
-          continue
-
-        for lst in stoppingList[-int(fps*timeThreshold):]:
-          if i not in lst:
-            break
-        else:
-          if (points[i][1][0][2] < 0.8
-              or points[i][1][1][2] < 0.8
-              or points[i][1][2][2] < 0.8):
-            # stop over timeThreshold sec and not view signage
-            continue
-
-        flagList[-1] = True
-        break
-
-    if any(flagList[-int(fps*3):]):
+    if any(flagList[-math.ceil(fps*3):]):
       isLight = True
-    else:
-      if not any(flagList):
-        isLight = False
+    elif not any(flagList):
+      isLight = False
 
-    cv2.putText(img, 'Light: ON' if isLight else 'Light: OFF', (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255) if isLight else (255, 0, 0), 3, cv2.LINE_AA)
-    vid_writer.write(img)
+
+    # overwrite red bbox if person have been stopping
+    for i in stoppingList[-1]:
+      if present.get(i):
+        cv2.rectangle(
+          img,
+          (int(present[i][0][0]), int(present[i][0][1])),
+          (int(present[i][0][2]), int(present[i][0][3])),
+          (0, 0, 255),
+          2
+        )
+
+    # add text to image
+    cv2.putText(
+      img,
+      'Light: ON' if isLight else 'Light: OFF',
+      (5, 30),
+      cv2.FONT_HERSHEY_SIMPLEX,
+      1,
+      (0, 0, 255) if isLight else (255, 0, 0),
+      3,
+      cv2.LINE_AA
+    )
+
+    vidWriter.write(img)
 
     cnt += 1
-    previous = points
+    previous = present
+    del closeList[0]
+    del stoppingList[0]
+    del flagList[0]
+
     end = time.time()
-    logger.info(f'{cnt} frame\'s prediction time : {end - start}')
+    logger.info(f'{cnt} frame\'s prediction time : {end - start:.3f}, FPS: {1 / (end - start):.2f}')
 
-  vid_writer.release()
-
+  vidWriter.release()

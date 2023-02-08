@@ -56,7 +56,7 @@ End-to-End Object Detection with Transformers[^3]
 Bounding Boxの大きさや特徴量から、同一人物を識別する。
 
 論文例:  
-Simple Online and Realtime Tracking with a Deep Association Metric[^4]  
+On the Unreasonable Effectiveness of Centroids in Image Retrieval[^4]  
 
 ### Multiple Object Tracking
 
@@ -229,7 +229,7 @@ Temporal Action Localizationにより立ち止まっているか判定する場�
 [^1]: [Redmon, J., Divvala, S., Girshick, R., & Farhadi, A. (2016). You only look once: Unified, real-time object detection. In Proceedings of the IEEE conference on computer vision and pattern recognition (pp. 779-788).](https://www.cv-foundation.org/openaccess/content_cvpr_2016/papers/Redmon_You_Only_Look_CVPR_2016_paper.pdf)
 [^2]: [Ge, Z., Liu, S., Wang, F., Li, Z., & Sun, J. (2021). Yolox: Exceeding yolo series in 2021. _arXiv preprint arXiv:2107.08430_.](https://arxiv.org/pdf/2107.08430.pdf) 
 [^3]: [Carion, N., Massa, F., Synnaeve, G., Usunier, N., Kirillov, A., & Zagoruyko, S. (2020, August). End-to-end object detection with transformers. In _European conference on computer vision_ (pp. 213-229). Springer, Cham.](https://arxiv.org/pdf/2005.12872.pdf)
-[^4]: [Wojke, N., Bewley, A., & Paulus, D. (2017, September). Simple online and realtime tracking with a deep association metric. In _2017 IEEE international conference on image processing (ICIP)_ (pp. 3645-3649). IEEE.](https://arxiv.org/pdf/1703.07402.pdf)
+[^4]: [Wieczorek, M., Rychalska, B., & Dąbrowski, J. (2021). On the unreasonable effectiveness of centroids in image retrieval. In Neural Information Processing: 28th International Conference, ICONIP 2021, Sanur, Bali, Indonesia, December 8–12, 2021, Proceedings, Part IV 28 (pp. 212-223). Springer International Publishing.](https://arxiv.org/pdf/2104.13643v1.pdf)
 [^5]: [Wojke, N., Bewley, A., & Paulus, D. (2017, September). Simple online and realtime tracking with a deep association metric. In _2017 IEEE international conference on image processing (ICIP)_ (pp. 3645-3649). IEEE.](https://arxiv.org/pdf/1703.07402.pdf)
 [^6]: [Zhang, Y., Sun, P., Jiang, Y., Yu, D., Weng, F., Yuan, Z., ... & Wang, X. (2022, October). Bytetrack: Multi-object tracking by associating every detection box. In _Computer Vision–ECCV 2022: 17th European Conference, Tel Aviv, Israel, October 23–27, 2022, Proceedings, Part XXII_ (pp. 1-21). Cham: Springer Nature Switzerland.](https://arxiv.org/pdf/2110.06864.pdf)
 [^7]: [Zeng, F., Dong, B., Zhang, Y., Wang, T., Zhang, X., & Wei, Y. (2022). Motr: End-to-end multiple-object tracking with transformer. In _European Conference on Computer Vision_ (pp. 659-675). Springer, Cham.](https://arxiv.org/pdf/2105.03247)

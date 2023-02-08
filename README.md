@@ -1,6 +1,7 @@
 # 課題2 - 解決手法の実装
 
-2023/02/03ver.  
+2023/02/08ver.  
+[2023/02/03ver.](https://github.com/ideguchi92/assignment/tree/v0.0.2)  
 [2023/01/30ver.](https://github.com/ideguchi92/assignment/tree/v0.0.1)
 
 ## 実装進捗
@@ -10,16 +11,22 @@
   Multi Object Detection: YOLOX(ByteTrack)  
   Multi Object Tracking: ByteTrack  
   Multi Pose Estimation: ViTPose  
-  静止判定  
-  視認判定  
+  静止視認判定    
   点灯/消灯判定
+
+### 対象の抽出
+
+以下の処理を行うことで、自身の環境(GTX980)で、ほぼ確実に5FPSを保つことができた。
+1. Detectionの結果に対し、Personクラスを抽出。
+1. Bounding Boxのサイズが全体の1%より大きいものを抽出。
+1. Tracking後、Bounding Boxの下辺のy座標が大きい方から7つを抽出。
 
 ## Install
 
 Dockerがインストール済みと仮定する。
 1. 下記コマンドを実行する。
   ```shell
-  git clone --depth=1 -b v0.0.2 https://github.com/ideguchi92/assignment.git
+  git clone --depth=1 -b v0.0.3 https://github.com/ideguchi92/assignment.git
   cd assignment/
   docker build --rm -t assignment_env .
   mkdir {data,logs,models}
@@ -46,19 +53,20 @@ docker run --gpus all -it --rm \
 -v ${PWD}/logs/:/assignment/logs/ \
 -v ${PWD}/models/:/assignment/models/ \
 -v ${PWD}/src/:/assignment/src/ \
-assignment_env python3 main.py -i <require: ex. data/input.mp4> -o <default: data/output.mp4> --half -s <int: skip rate, estimate every number frames>
+assignment_env python3 main.py -i <ex. data/input.mp4> -o <ex. data/output.mp4> --half -s <ex. 10>
 ```
 
 ### Option
-i: str インプットファイル名  
+
+i: str, require インプットファイル名  
 o: str, default=data/output.mp4 アウトプットファイル名  
 half: bool, default=False 半精度に変換する  
-s: int, default=1 sフレーム毎に推論を行う
+s: int, default=1 sフレーム毎に1回推論を行う
 
 ## Demo
 
 実行結果はこちら  
-5fps(リアルタイム実行可能)  
-https://drive.google.com/file/d/1_2WKGrr3yRLuXFInS1okclUMEGi7ROPz/view?usp=share_link  
-50fps(リアルタイム実行不可)  
-https://drive.google.com/file/d/1DjR8s8053TfOFcfcNm5wjqFZI6J8IhXa/view?usp=share_link
+5fps(GTX980でリアルタイム実行可能)  
+https://drive.google.com/file/d/1KdCItjKTRPcrBkJXVZ_6d7FAMGvfnP3K/view?usp=share_link  
+50fps(GTX980でリアルタイム実行不可)  
+https://drive.google.com/file/d/1c6g__ZSG0K_iFpNA6qlDDNj6qPyEkvv2/view?usp=share_link

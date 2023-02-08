@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
+FROM nvcr.io/nvidia/cuda:11.7.0-cudnn8-devel-ubuntu20.04
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
@@ -15,24 +15,18 @@ RUN apt-get update \
   && python3 -m pip install -U pip
 
 WORKDIR /assignment
-RUN git clone --depth=1 https://github.com/gatagat/lap.git
+RUN git clone --depth=1 https://github.com/NVIDIA/apex.git
 RUN git clone --depth=1 https://github.com/ifzhang/ByteTrack.git
 RUN git clone --depth=1 -b v1.3.9 https://github.com/open-mmlab/mmcv.git
 RUN git clone --depth=1 https://github.com/ViTAE-Transformer/ViTPose.git
-#RUN git clone --depth=1 https://github.com/ashutosh1807/PixelFormer.git
-#RUN git clone --depth=1 https://github.com/isl-org/MiDaS.git
-#RUN git clone --depth=1 https://github.com/isl-org/DPT.git
-#RUN git clone --depth=1 https://github.com/aim-uofa/AdelaiDepth.git
 
-WORKDIR /assignment/lap
-RUN python3 -m pip install cython 'numpy<1.24'
-RUN python3 setup.py build
-RUN python3 setup.py install
-
-WORKDIR /assignment
+RUN python3 -m pip install 'numpy<1.24'
 RUN python3 -m pip install -r ByteTrack/requirements.txt
 RUN python3 -m pip install -r ViTPose/requirements/build.txt
-#RUN python3 -m pip install -r AdelaiDepth/LeReS/requirements.txt
+RUN python3 -m pip install -r apex/requirements_dev.txt
+
+WORKDIR /assignment/apex
+RUN python3 -m pip install -v --disable-pip-version-check --no-cache-dir ./
 
 WORKDIR /assignment/ByteTrack
 RUN python3 setup.py develop
@@ -46,10 +40,5 @@ RUN MMCV_WITH_OPS=1 python3 -m pip install -e .
 WORKDIR /assignment/ViTPose
 RUN python3 -m pip install -v -e .
 RUN python3 -m pip install timm einops
-
-#WORKDIR /assignment/DPT
-#RUN python3 -m pip install -v -e .
-
-#ENV PYTHONPATH $PYTHONPATH:/assignment/AdelaiDepth/LeReS/Minist_Test
 
 WORKDIR /assignment
